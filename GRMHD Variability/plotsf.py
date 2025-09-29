@@ -12,9 +12,8 @@ import os
 folder_path = os.path.join(os.getcwd(), 'EHT Data', 'Plots')
 sys.path.append(folder_path)
 
-from readarray import readSMA, readALMA
+from EHT_Data.Plots.readarray import readSMA, readALMA
 from matplotlib.ticker import FixedLocator, LogLocator, LogFormatterMathtext
-
 
 
 ###################################
