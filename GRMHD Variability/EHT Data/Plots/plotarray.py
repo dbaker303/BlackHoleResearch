@@ -1,0 +1,92 @@
+import numpy as np                     # imports library for math
+import matplotlib.pyplot as plt        # import library for plots
+from matplotlib import rcParams        # import to change plot parameters
+import pandas as pd                    # import pandas for reading data
+from readarray import readSMA,readALMA # import library to read array data
+
+###################################
+#   EHT scatter+line plot style 
+###################################
+figsize=(7.5,5.5) #size of the figure for general figures
+
+#rcParams['text.usetex']=True
+#rcParams['font.family']='sans-serif'
+#rcParams['font.sans-serif']='Latin Modern Roman'
+
+# axes and tickmarks
+rcParams['axes.labelsize']=15
+#rcParams['axes.labelweight']=600
+rcParams['axes.linewidth']=1.5
+
+rcParams['xtick.labelsize']=14
+rcParams['xtick.top']=True
+rcParams['xtick.direction']='in'
+rcParams['xtick.major.size']=6
+rcParams['xtick.minor.size']=3
+rcParams['xtick.major.width']=1.2
+rcParams['xtick.minor.width']=1.2
+rcParams['xtick.minor.visible']=True
+
+rcParams['ytick.labelsize']=14
+rcParams['ytick.right']=True
+rcParams['ytick.direction']='in'
+rcParams['ytick.major.size']=6
+rcParams['ytick.minor.size']=3
+rcParams['ytick.major.width']=1.2
+rcParams['ytick.minor.width']=1.2
+rcParams['ytick.minor.visible']=True
+
+# points and lines
+rcParams['lines.linewidth']=2.0
+rcParams['lines.markeredgewidth']=0.5
+rcParams['lines.markersize']=6
+
+plt.figure(figsize=figsize)            # size of the figure
+
+band='hi'                              # define which band
+iSet=4                                 # define which data set
+
+#dataset=['3597','3598','3599','3600','3601']
+dataset=['Apr05','Apr06','Apr07','Apr10','Apr11']
+dates=['April 5','April 6','April 7','April 10','April 11']
+
+for iSet in [0,1,2,3,4]:
+    #read the SMA file data
+    SMAfname='../SMA/SM_STAND_HI_'+dataset[iSet]+'.dat'
+    SMActime,SMAflux,SMAflux_err=readSMA(SMAfname)
+    
+    #represent the time as a span of multiple days of data
+    if (iSet<3):
+        SMActime+=iSet*24
+    else:
+        SMActime+=(iSet+2)*24
+        
+    #plotting the SMA data
+    plt.errorbar(SMActime,SMAflux,SMAflux_err,fmt='.',ms=2,label="SMA "+dates[iSet])
+
+for iSet in [1,2,4]:
+    #read the ALMA file data
+    ALMAfname='../ALMA/AA_STAND_HI_'+dataset[iSet]+'.dat'
+    ALMActime,ALMAflux,ALMAflux_err=readALMA(ALMAfname)
+    
+    #represent the time as a span of multiple days of data
+    if (iSet<3):
+        ALMActime+=iSet*24
+    else:
+        ALMActime+=(iSet+2)*24
+        
+    #plotting the ALMA data
+    plt.errorbar(ALMActime,ALMAflux,ALMAflux_err,fmt='.',ms=2,label="ALMA "+dates[iSet])
+    print(dates[iSet],np.mean(ALMAflux),np.std(ALMAflux)/np.mean(ALMAflux))
+    #print(np.std(ALMAflux_err))
+
+
+plt.plot([151,153],[1,4],'r-',lw=10,alpha=0.3)
+plt.axis([0,160,1,4])
+plt.xlabel('UTC (h)')
+plt.ylabel('Flux (Jy)')
+
+#plt.text(11,1.2,dates[iSet]+', \#'+dataset[iSet]+', '+band,fontsize=14)
+plt.legend(loc='upper left',fontsize='xx-small')
+
+plt.show()
