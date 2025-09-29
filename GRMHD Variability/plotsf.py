@@ -3,7 +3,6 @@ import matplotlib.pyplot as plt        # import library for plots
 from scipy import stats                # import binning statistics
 from matplotlib import rcParams        # import to change plot parameters
 import pandas as pd                    # import pandas for reading data
-from scipy import signal
 
 from EHT_Data.Plots.readarray import readSMA, readALMA
 from matplotlib.ticker import FixedLocator, LogLocator, LogFormatterMathtext
