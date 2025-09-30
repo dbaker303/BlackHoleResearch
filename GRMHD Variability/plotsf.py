@@ -36,7 +36,7 @@ rcParams['ytick.minor.width']=1.2
 rcParams['ytick.minor.visible']=True
 
 # points and lines
-rcParams['lines.linewidth']=2.0
+rcParams['lines.linewidth']=0.5
 rcParams['lines.markeredgewidth']=0.5
 rcParams['lines.markersize']=6
 
@@ -117,13 +117,8 @@ def sliding_structFunc_opt(time, value, error=None, dt0=None, dt_max=None):
         if diffs:
             D_val = np.mean(diffs)
             D1[idx] = D_val
-            if error is not None:
-                sigmaD = np.sqrt(8 * ave_error**2 * D1 / len(diffs))
-                sigmaD1[idx] = sigmaD / (2 * np.sqrt(D1))
         else:
             D1[idx] = np.nan
-            if error is not None:
-                sigmaD1[idx] = np.nan
 
     return target_dts, D1, sigmaD1
 
@@ -131,12 +126,18 @@ def sliding_structFunc_opt(time, value, error=None, dt0=None, dt_max=None):
 ##########################################
         ## SIMULATION DATA ##
 ##########################################
-"""
-inclinationsall=['10.0','30.0','50.0','70.0']
+
+"""inclinationsall=['10.0','30.0','50.0','70.0']
 fieldall=['S','M']
 bhallspin=[-0.94,-0.5,0.0,0.5,0.94]
 bhallspin=[-0.94,-0.5,0.0]
-Rratioall=[10,40,160]
+Rratioall=[10,40,160]"""
+
+inclinationsall=['10.0','30.0']
+fieldall=['S','M']
+bhallspin=[-0.94,-0.5]
+bhallspin=[0.0]
+Rratioall=[10,160]
 
 for field in fieldall:
     structall=np.array([])
@@ -157,31 +158,28 @@ for field in fieldall:
                 ctime=(alldata[:,0]-alldata[0,0])*0.02942
                 # next column is flux
                 flux=alldata[:,1]
-                # makeup an error for later
-                err=np.ones(np.size(flux))*0.001
                 
                 # thining
                 thin=5
                 ctime=ctime[::thin]
                 flux=flux[::thin]
-                err=err[::thin]
                 
                 # make a set of equdistant bins between 0 and 8 hours
-                tlag, sqrtD1, sigmad1 = sliding_structFunc_opt(ctime, flux, error=None, dt0=None, dt_max=None)
+                tlag, D1, sigmad1 = sliding_structFunc_opt(ctime, flux, error=None, dt0=None, dt_max=None)
                 print(field,incl,bhspin,Rratio)
 
                 
-                ax1.plot(tlag, sqrtD1, linestyle='-', alpha=0.2)
+                ax1.plot(tlag, D1, linestyle='-', alpha=0.2)
                 
-"""
+
 ##########################################
         ## EHT DATA ##
 ##########################################
 
-dataset=['Apr05','Apr06','Apr07','Apr10']
-dates=['April 5','April 6','April 7','April 10']
+dataset=['Apr05','Apr06','Apr07','Apr10', "Apr11"]
+dates=['April 5','April 6','April 7','April 10', "April 11"]
 
-"""for iSet in [0,1,2,3]:
+for iSet in []:
     #read the SMA file data
     SMAfname='EHT_Data/SMA/SM_STAND_HI_'+dataset[iSet]+'.dat'
     SMActime,SMAflux,SMAflux_err=readSMA(SMAfname)
@@ -192,12 +190,12 @@ dates=['April 5','April 6','April 7','April 10']
     else:
         SMActime+=(iSet+2)*24
             
-    SMAtlag, SMAsqrtD1, SMAerrorD1 = sliding_structFunc_opt(SMActime, SMAflux, SMAflux_err)
-    ax2.plot(SMAtlag, SMAsqrtD1, linestyle='-', label=f"{SMAfname}")
+    SMAtlag, SMAD1, SMAerrorD1 = sliding_structFunc_opt(SMActime, SMAflux, SMAflux_err)
+    ax2.plot(SMAtlag, SMAD1, linestyle='-', label=f"{SMAfname}")
 
-    print("SMA" + dates[iSet])"""
+    print("SMA" + dates[iSet])
 
-for iSet in [1]:
+for iSet in [1, 2]:
     #read the ALMA file data
     ALMAfname='EHT_Data/ALMA/AA_STAND_HI_'+dataset[iSet]+'.dat'
     ALMActime,ALMAflux,ALMAflux_err=readALMA(ALMAfname)
