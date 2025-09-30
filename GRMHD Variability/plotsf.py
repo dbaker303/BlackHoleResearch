@@ -54,13 +54,6 @@ def sliding_structFunc_opt(time, value, error=None, dt0=None, dt_max=None):
     Compute the first-order structure function (SF) using a sliding window,
     following the definition from Simonetti et al. (1985).
 
-    The SF at time lag Δt is defined as
-        D(Δt) = (1 / M_Δt) * Σ_{i,j} (x_j - x_i)^2
-    where the sum is over all pairs (i, j) with 
-        Δt - Δt0/2 <= |t_j - t_i| <= Δt + Δt0/2,
-    and M_Δt is the number of such pairs. The SF measures the variance of the
-    signal on timescale Δt. Optionally, an error estimate can be computed.
-
     Parameters
     ----------
     time : array-like
@@ -78,24 +71,30 @@ def sliding_structFunc_opt(time, value, error=None, dt0=None, dt_max=None):
     -------
     target_dts : array
         Time lags Δt at which the SF is evaluated.
-    sqrtD1 : array
-        Square root of the structure function √D(Δt) at each Δt.
+    D1 : array
+        Structure function D(Δt) at each Δt.
     sigmaD1 : array or None
         Uncertainty of sqrtD1 due to measurement error, if `error` is provided.
     """
 
     time = np.array(time)
-    value = value / np.mean(value)   # normalize flux
     N = len(time)
 
+    # sets default dt0 and dt_max if not provided
+    # sliding window determines which pairs are included
     if dt0 is None:
         dt0 = np.min(np.diff(np.sort(time)))
-
+    # default max lag is full time span
     if dt_max is None:
         dt_max = np.max(time) - np.min(time)
-
+    
+    # create target Δt values
     target_dts = np.arange(0, dt_max + dt0, dt0)
-    sqrtD1 = np.zeros(len(target_dts))
+    
+    #create array to store the Structure Function values
+    D1 = np.zeros(len(target_dts))
+    
+    #optional error array
     sigmaD1 = np.zeros(len(target_dts)) if error is not None else None
 
     # Normalize error if provided
@@ -108,6 +107,7 @@ def sliding_structFunc_opt(time, value, error=None, dt0=None, dt_max=None):
         diffs = []
 
         # Loop over all pairs (i < j)
+        #stores the squared differences for pairs within the sliding window
         for i in range(N):
             for j in range(i + 1, N):
                 tau = np.abs(time[j] - time[i])
@@ -115,23 +115,18 @@ def sliding_structFunc_opt(time, value, error=None, dt0=None, dt_max=None):
                     diffs.append((value[j] - value[i])**2)
 
         if diffs:
-            D1 = np.mean(diffs)
-            sqrtD1[idx] = np.sqrt(D1)
+            D_val = np.mean(diffs)
+            D1[idx] = D_val
             if error is not None:
                 sigmaD = np.sqrt(8 * ave_error**2 * D1 / len(diffs))
                 sigmaD1[idx] = sigmaD / (2 * np.sqrt(D1))
         else:
-            sqrtD1[idx] = np.nan
+            D1[idx] = np.nan
             if error is not None:
                 sigmaD1[idx] = np.nan
 
-    return target_dts, sqrtD1, sigmaD1
+    return target_dts, D1, sigmaD1
 
-
-
-def structFunction(time, value):
-    pass
-    
 
 ##########################################
         ## SIMULATION DATA ##
@@ -186,7 +181,7 @@ for field in fieldall:
 dataset=['Apr05','Apr06','Apr07','Apr10']
 dates=['April 5','April 6','April 7','April 10']
 
-for iSet in [0,1,2,3]:
+"""for iSet in [0,1,2,3]:
     #read the SMA file data
     SMAfname='EHT_Data/SMA/SM_STAND_HI_'+dataset[iSet]+'.dat'
     SMActime,SMAflux,SMAflux_err=readSMA(SMAfname)
@@ -200,9 +195,9 @@ for iSet in [0,1,2,3]:
     SMAtlag, SMAsqrtD1, SMAerrorD1 = sliding_structFunc_opt(SMActime, SMAflux, SMAflux_err)
     ax2.plot(SMAtlag, SMAsqrtD1, linestyle='-', label=f"{SMAfname}")
 
-    print("SMA" + dates[iSet])
+    print("SMA" + dates[iSet])"""
 
-"""for iSet in [1,2]:
+for iSet in [1]:
     #read the ALMA file data
     ALMAfname='EHT_Data/ALMA/AA_STAND_HI_'+dataset[iSet]+'.dat'
     ALMActime,ALMAflux,ALMAflux_err=readALMA(ALMAfname)
@@ -213,11 +208,10 @@ for iSet in [0,1,2,3]:
     else:
         ALMActime+=(iSet+2)*24
         
-    
-    ALMAtlag, ALMAsqrtD1, ALMAerrorD1 = sliding_structFunc_opt(ALMActime, ALMAflux, ALMAflux_err)
-    ax2.plot(ALMAtlag, ALMAsqrtD1, linestyle='-', label=f"{ALMAfname}")
+    ALMAtlag, ALMAD1, ALMAerrorD1 = sliding_structFunc_opt(ALMActime, ALMAflux, ALMAflux_err)
+    ax2.plot(ALMAtlag, ALMAD1, linestyle='-', label=f"{ALMAfname}")
 
-    print("ALMA" + dates[iSet])"""
+    print("ALMA" + dates[iSet])
     
 ##########################################
         ## PLOT CHARACERISTICS ##
@@ -227,7 +221,7 @@ for iSet in [0,1,2,3]:
 # Top subplot: simulation data
 ax1.set_xscale('log')
 ax1.set_yscale('log')
-ax1.set_ylabel(r'Log $[D^1(\tau)]^{1/2}$')
+ax1.set_ylabel(r'Log $[D^1(\tau)]$')
 ax1.set_title("Simulation Data")
 ax1.grid(True, which='major', ls='--', alpha=0.3)
 
@@ -248,9 +242,9 @@ ax2.legend(
 
 fig.supxlabel(r'Log $\Delta \tau$ (hours)', fontsize=14)
 
-"""for ax in [ax1, ax2]:
+for ax in [ax1, ax2]:
     ax.set_xlim([0.005, 5])
-    ax.set_ylim([0.00008, 1])"""
+    ax.set_ylim([0.00008, 1])
 
 plt.tight_layout()
 plt.show()
