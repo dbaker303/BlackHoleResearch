@@ -51,30 +51,39 @@ fig, (ax1, ax2) = plt.subplots(
 
 def sliding_structFunc_opt(time, value, error=None, dt0=None, dt_max=None):
     """
-    Compute the first-order structure function using a sliding window (memory-efficient).
+    Compute the first-order structure function (SF) using a sliding window,
+    following the definition from Simonetti et al. (1985).
+
+    The SF at time lag Δt is defined as
+        D(Δt) = (1 / M_Δt) * Σ_{i,j} (x_j - x_i)^2
+    where the sum is over all pairs (i, j) with 
+        Δt - Δt0/2 <= |t_j - t_i| <= Δt + Δt0/2,
+    and M_Δt is the number of such pairs. The SF measures the variance of the
+    signal on timescale Δt. Optionally, an error estimate can be computed.
 
     Parameters
     ----------
-    time : array
-        Times of the measurements
-    value : array
-        Measured values at those times
-    error : array or None
-        Measurement errors (optional)
-    dt0 : float
-        Sliding window width (Δt0). If None, defaults to minimum time difference.
-    dt_max : float or None
+    time : array-like
+        Times of the measurements.
+    value : array-like
+        Measured values at those times. Values are internally normalized by their mean.
+    error : array-like or None, optional
+        Measurement errors. Used to estimate uncertainty in sqrt(D(Δt)).
+    dt0 : float, optional
+        Width of the sliding window (Δt0). If None, defaults to the minimum time difference.
+    dt_max : float, optional
         Maximum Δt at which to evaluate the SF. If None, defaults to max(time) - min(time).
 
     Returns
     -------
     target_dts : array
-        Target time lags
+        Time lags Δt at which the SF is evaluated.
     sqrtD1 : array
-        Square root of the structure function at each Δt
-    sigmaD1 : array
-        Error estimate for sqrtD1 (optional)
+        Square root of the structure function √D(Δt) at each Δt.
+    sigmaD1 : array or None
+        Uncertainty of sqrtD1 due to measurement error, if `error` is provided.
     """
+
     time = np.array(time)
     value = value / np.mean(value)   # normalize flux
     N = len(time)
@@ -119,14 +128,18 @@ def sliding_structFunc_opt(time, value, error=None, dt0=None, dt_max=None):
     return target_dts, sqrtD1, sigmaD1
 
 
+
+def structFunction(time, value):
+    pass
+    
+
 ##########################################
         ## SIMULATION DATA ##
 ##########################################
-
-#inclinationsall=['10.0','30.0','50.0','70.0']
-inclinationsall=['70.0']
+"""
+inclinationsall=['10.0','30.0','50.0','70.0']
 fieldall=['S','M']
-#bhallspin=[-0.94,-0.5,0.0,0.5,0.94]
+bhallspin=[-0.94,-0.5,0.0,0.5,0.94]
 bhallspin=[-0.94,-0.5,0.0]
 Rratioall=[10,40,160]
 
@@ -165,17 +178,17 @@ for field in fieldall:
                 
                 ax1.plot(tlag, sqrtD1, linestyle='-', alpha=0.2)
                 
-
+"""
 ##########################################
         ## EHT DATA ##
 ##########################################
 
-dataset=['Apr05','Apr06','Apr07','Apr10','Apr11']
-dates=['April 5','April 6','April 7','April 10','April 11']
+dataset=['Apr05','Apr06','Apr07','Apr10']
+dates=['April 5','April 6','April 7','April 10']
 
-for iSet in [0,1,2,3,4]:
+for iSet in [0,1,2,3]:
     #read the SMA file data
-    SMAfname='EHT Data/SMA/SM_STAND_HI_'+dataset[iSet]+'.dat'
+    SMAfname='EHT_Data/SMA/SM_STAND_HI_'+dataset[iSet]+'.dat'
     SMActime,SMAflux,SMAflux_err=readSMA(SMAfname)
     
     #represent the time as a span of multiple days of data
@@ -189,9 +202,9 @@ for iSet in [0,1,2,3,4]:
 
     print("SMA" + dates[iSet])
 
-"""for iSet in [1,2,4]:
+"""for iSet in [1,2]:
     #read the ALMA file data
-    ALMAfname='EHT Data/ALMA/AA_STAND_HI_'+dataset[iSet]+'.dat'
+    ALMAfname='EHT_Data/ALMA/AA_STAND_HI_'+dataset[iSet]+'.dat'
     ALMActime,ALMAflux,ALMAflux_err=readALMA(ALMAfname)
     
     #represent the time as a span of multiple days of data
