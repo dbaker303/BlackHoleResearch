@@ -3,10 +3,7 @@ import matplotlib.pyplot as plt        # import library for plots
 from scipy import stats                # import binning statistics
 from matplotlib import rcParams        # import to change plot parameters
 import pandas as pd                    # import pandas for reading data
-
 from EHT_Data.Plots.readarray import readSMA, readALMA
-from matplotlib.ticker import FixedLocator, LogLocator, LogFormatterMathtext
-
 
 ###################################
 #   EHT scatter+line plot style 
@@ -127,32 +124,31 @@ def sliding_structFunc_opt(time, value, error=None, dt0=None, dt_max=None):
         ## SIMULATION DATA ##
 ##########################################
 
-"""inclinationsall=['10.0','30.0','50.0','70.0']
+inclinationsall=['10.0','30.0','50.0','70.0']
 fieldall=['S','M']
 bhallspin=[-0.94,-0.5,0.0,0.5,0.94]
-bhallspin=[-0.94,-0.5,0.0]
-Rratioall=[10,40,160]"""
+Rratioall=[10,40,160]
 
-inclinationsall=['10.0','30.0']
-fieldall=['S','M']
-bhallspin=[-0.94,-0.5]
-bhallspin=[0.0]
-Rratioall=[10,160]
+inclinationsall=['10.0']
+fieldall=['S']
+bhallspin=[-0.94]
+Rratioall=[160]
 
 for field in fieldall:
-    structall=np.array([])
-    
     for incl in inclinationsall:
         for bhspin in bhallspin:
             for Rratio in Rratioall:
 
-                # make a filename based on the input parameters
+                # make input and output file names based on the parameters
                 if (field=='S'):
-                    filename="Simulations/SANE/"+field+"a"+str(bhspin)+".i"+incl+".R"+str(Rratio)+"_var.out"
+                    infile="Simulations/SANE/"+field+"a"+str(bhspin)+".i"+incl+".R"+str(Rratio)+"_var.out"
+                    outfile="Simulations/SANEnpz/"+field+"a"+str(bhspin)+".i"+incl+".R"+str(Rratio)+"_sf.npz"
                 elif (field=='M'):
-                    filename="Simulations/MAD/"+field+"a"+str(bhspin)+".i"+incl+".R"+str(Rratio)+"_var.out"
+                    infile="Simulations/MAD/"+field+"a"+str(bhspin)+".i"+incl+".R"+str(Rratio)+"_var.out"
+                    outfile="Simulations/MADnpz/"+field+"a"+str(bhspin)+".i"+incl+".R"+str(Rratio)+"_sf.npz"
+                    
                 # read all the data
-                alldata=np.genfromtxt(filename)
+                alldata=np.genfromtxt(infile)
                 
                 # first column is time in 5M, which is 0.00588 hrs for Sgr A* (@4.3 10^6 Msun)
                 ctime=(alldata[:,0]-alldata[0,0])*0.02942
@@ -166,17 +162,27 @@ for field in fieldall:
                 
                 # make a set of equdistant bins between 0 and 8 hours
                 tlag, D1, sigmad1 = sliding_structFunc_opt(ctime, flux, error=None, dt0=None, dt_max=None)
-                print(field,incl,bhspin,Rratio)
-
                 
+                np.savez(outfile,
+                         field=field,
+                         inclination=float(incl),
+                         bhspin=bhspin,
+                         Rratio=Rratio,
+                         tlag=tlag,
+                         D1=D1)
+                                
+                print(field,incl,bhspin,Rratio)
                 ax1.plot(tlag, D1, linestyle='-', alpha=0.2)
+                
+                
+                
                 
 
 ##########################################
         ## EHT DATA ##
 ##########################################
 
-dataset=['Apr05','Apr06','Apr07','Apr10', "Apr11"]
+"""dataset=['Apr05','Apr06','Apr07','Apr10', "Apr11"]
 dates=['April 5','April 6','April 7','April 10', "April 11"]
 
 for iSet in []:
@@ -209,7 +215,7 @@ for iSet in [1, 2]:
     ALMAtlag, ALMAD1, ALMAerrorD1 = sliding_structFunc_opt(ALMActime, ALMAflux, ALMAflux_err)
     ax2.plot(ALMAtlag, ALMAD1, linestyle='-', label=f"{ALMAfname}")
 
-    print("ALMA" + dates[iSet])
+    print("ALMA" + dates[iSet])"""
     
 ##########################################
         ## PLOT CHARACERISTICS ##
