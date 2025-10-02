@@ -129,10 +129,12 @@ fieldall=['S','M']
 bhallspin=[-0.94,-0.5,0.0,0.5,0.94]
 Rratioall=[10,40,160]
 
-inclinationsall=['10.0']
-fieldall=['S']
-bhallspin=[-0.94]
-Rratioall=[160]
+#Need to collect 0.94 inclinations for MAD and SANE
+
+inclinationsall=['10.0','30.0','50.0','70.0']
+fieldall=['M', 'S']
+bhallspin=[0.94]
+Rratioall=[10,40,160]
 
 for field in fieldall:
     for incl in inclinationsall:
@@ -174,9 +176,6 @@ for field in fieldall:
                 print(field,incl,bhspin,Rratio)
                 ax1.plot(tlag, D1, linestyle='-', alpha=0.2)
                 
-                
-                
-                
 
 ##########################################
         ## EHT DATA ##
@@ -185,7 +184,7 @@ for field in fieldall:
 """dataset=['Apr05','Apr06','Apr07','Apr10', "Apr11"]
 dates=['April 5','April 6','April 7','April 10', "April 11"]
 
-for iSet in []:
+for iSet in [0,1,2,3]:
     #read the SMA file data
     SMAfname='EHT_Data/SMA/SM_STAND_HI_'+dataset[iSet]+'.dat'
     SMActime,SMAflux,SMAflux_err=readSMA(SMAfname)
@@ -197,11 +196,16 @@ for iSet in []:
         SMActime+=(iSet+2)*24
             
     SMAtlag, SMAD1, SMAerrorD1 = sliding_structFunc_opt(SMActime, SMAflux, SMAflux_err)
+    
+    np.savez(f"EHT_Data/SMAnpz/SMA_{dataset[iSet]}_sf.npz",
+             fname=SMAfname,
+             tlag=SMAtlag,
+             D1=SMAD1)
+    
     ax2.plot(SMAtlag, SMAD1, linestyle='-', label=f"{SMAfname}")
-
     print("SMA" + dates[iSet])
 
-for iSet in [1, 2]:
+for iSet in [1,2]:
     #read the ALMA file data
     ALMAfname='EHT_Data/ALMA/AA_STAND_HI_'+dataset[iSet]+'.dat'
     ALMActime,ALMAflux,ALMAflux_err=readALMA(ALMAfname)
@@ -213,8 +217,13 @@ for iSet in [1, 2]:
         ALMActime+=(iSet+2)*24
         
     ALMAtlag, ALMAD1, ALMAerrorD1 = sliding_structFunc_opt(ALMActime, ALMAflux, ALMAflux_err)
+    
+    np.savez(f"EHT_Data/ALMAnpz/ALMA_{dataset[iSet]}_sf.npz",
+             fname=ALMAfname,
+             tlag=ALMAtlag,
+             D1=ALMAD1)
+    
     ax2.plot(ALMAtlag, ALMAD1, linestyle='-', label=f"{ALMAfname}")
-
     print("ALMA" + dates[iSet])"""
     
 ##########################################

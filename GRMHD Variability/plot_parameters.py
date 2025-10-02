@@ -18,21 +18,25 @@ fieldPlot, inclPlot = axes[0]  # first row
 bhspinPlot, rratioPlot = axes[1]  # second row
 
 # time lag size in hours to compute structure function and compare results
-deltaTau = 0.5
+deltaTau = 0.3 # hours
 
 #################################
 #  Reading Simulation
 #################################
 
-axis_inclinationsall=['10.0','30.0','50.0','70.0']
-axis_fieldall=['S','M']
-axis_bhallspin=[-0.94,-0.5,0.0,0.5,0.94]
-axis_Rratioall=[10,40,160]
 
-inclinationsall=['10.0']
-fieldall=['S']
-bhallspin=[-0.94]
-Rratioall=[160]
+inclinationsall=['10.0','30.0','50.0','70.0']
+fieldall=['S','M']
+bhallspin=[-0.94,-0.5,0.0,0.5,0.94]
+Rratioall=[10,40,160]
+
+#0.94 spin simulations take too long to run
+
+inclinationsall=['10.0','30.0','50.0','70.0']
+fieldall=['S','M']
+bhallspin=[-0.94,-0.5,0.0,0.5]
+Rratioall=[10,40,160]
+
 
 for field in fieldall:
     for incl in inclinationsall:
@@ -56,36 +60,64 @@ for field in fieldall:
                 bhspinPlot.plot(bhspin, D1_at_deltaTau, 'o', label=f'Spin: {bhspin}')
                 rratioPlot.plot(Rratio, D1_at_deltaTau, 'o', label=f'Rratio: {Rratio}')
                 
-                    
-# Set titles and labels
+#################################
+#  Reading EHT Data
+################################# 
+
+dataset=['Apr05','Apr06','Apr07','Apr10']
+dates=['April 5','April 6','April 7','April 10']
+
+D1_list = []
+
+for iSet in [0,1,2,3]:
+    data = np.load(f"EHT_Data/SMAnpz/SMA_{dataset[iSet]}_sf.npz")
+    tlag = data["tlag"]
+    D1 = data["D1"]
+    idx = np.argmin(np.abs(tlag - deltaTau)) # find index of closest time lag to deltaTau
+    D1_at_deltaTau = D1[idx] # get the structure function value at that index
+    D1_list.append(D1_at_deltaTau)
+    
+for iSet in [1,2]:
+    data = np.load(f"EHT_Data/ALMAnpz/ALMA_{dataset[iSet]}_sf.npz")
+    tlag = data["tlag"]
+    D1 = data["D1"]
+    idx = np.argmin(np.abs(tlag - deltaTau)) # find index of closest time lag to deltaTau
+    D1_at_deltaTau = D1[idx] # get the structure function value at that index
+    D1_list.append(D1_at_deltaTau)
+    
+EHT_D1_list = np.array(D1_list)
+    
+
+#################################
+#  Final Plot Adjustments
+#################################
+
+for ax in [fieldPlot, inclPlot, bhspinPlot, rratioPlot]:
+    ax.set_ylim([0.00008, 1])
+    ax.set_ylabel(fr'Log $[D^1(\tau)]$ @ $\tau$={deltaTau} hr')
+    ax.set_yscale('log')  # set y-axis to logarithmic scale
+    ax.axhspan(
+    ymin=EHT_D1_list.min(),
+    ymax=EHT_D1_list.max(),
+    color='red',
+    alpha=0.3
+)
+
 fieldPlot.set_title('Structure Function vs Magnetic Field Type')
 fieldPlot.set_xlabel('Magnetic Field Type (S/M)')
-fieldPlot.set_ylabel(f'Structure Function at {deltaTau} hr')
-fieldPlot.set_xticks([0, 1])  # set x-ticks to field types
-fieldPlot.set_xticklabels(['S', 'M'])
-fieldPlot.grid(True)
 
 inclPlot.set_title('Structure Function vs Inclination')
 inclPlot.set_xlabel('Inclination (degrees)')
-inclPlot.set_ylabel(f'Structure Function at {deltaTau} hr')
-inclPlot.set_xticks([10, 30, 50, 70])  # set x-ticks to inclination values
-inclPlot.grid(True)
+inclPlot.set_xticks([10.0, 30.0, 50.0, 70.0])  # set x-ticks to inclination values
 
 bhspinPlot.set_title('Structure Function vs Black Hole Spin')
 bhspinPlot.set_xlabel('Black Hole Spin')
-bhspinPlot.set_ylabel(f'Structure Function at {deltaTau} hr')
-bhspinPlot.set_xticks(axis_bhallspin)  # set x-ticks to BH spin values
-bhspinPlot.grid(True)
+bhspinPlot.set_xticks([-0.94,-0.5,0.0,0.5,0.94])  # set x-ticks to BH spin values
 
 rratioPlot.set_title('Structure Function vs Rratio')
 rratioPlot.set_xlabel('Rratio')
-rratioPlot.set_ylabel(f'Structure Function at {deltaTau} hr')
-rratioPlot.set_xticks(axis_Rratioall)  # set x-ticks to Rratio values
-rratioPlot.grid(True)
+rratioPlot.set_xticks([10,40,160])  # set x-ticks to Rratio values
 
-
-# x axis should be the values of the paremters,
-# y axis should be the values of the structure function at a given time lag
 
 plt.tight_layout()
 plt.show()
