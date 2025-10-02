@@ -132,7 +132,7 @@ Rratioall=[10,40,160]
 #Need to collect 0.94 inclinations for MAD and SANE
 
 inclinationsall=['10.0','30.0','50.0','70.0']
-fieldall=['M', 'S']
+fieldall=['S','M']
 bhallspin=[0.94]
 Rratioall=[10,40,160]
 

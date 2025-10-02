@@ -25,17 +25,10 @@ deltaTau = 0.3 # hours
 #################################
 
 
-inclinationsall=['10.0','30.0','50.0','70.0']
-fieldall=['S','M']
-bhallspin=[-0.94,-0.5,0.0,0.5,0.94]
-Rratioall=[10,40,160]
-
-#0.94 spin simulations take too long to run
-
-inclinationsall=['10.0','30.0','50.0','70.0']
-fieldall=['S','M']
-bhallspin=[-0.94,-0.5,0.0,0.5]
-Rratioall=[10,40,160]
+inclinationsall=['10.0','30.0','50.0','70.0'] #corresponds to shapes circle, square, diamond, triangle
+fieldall=['S','M'] # size of marker
+bhallspin=[-0.94,-0.5,0.0,0.5,0.94] # sets border color to different colors
+Rratioall=[10,40,160] # sets fillstyle to unfilled, half-filled, or filled
 
 
 for field in fieldall:
@@ -54,11 +47,25 @@ for field in fieldall:
                 
                 idx = np.argmin(np.abs(tlag - deltaTau)) # find index of closest time lag to deltaTau
                 D1_at_deltaTau = D1[idx] # get the structure function value at that index
-
+                
                 fieldPlot.plot(field, D1_at_deltaTau, 'o', label=f'Field: {field}')
                 inclPlot.plot(float(incl), D1_at_deltaTau, 'o', label=f'Incl: {incl}')
                 bhspinPlot.plot(bhspin, D1_at_deltaTau, 'o', label=f'Spin: {bhspin}')
                 rratioPlot.plot(Rratio, D1_at_deltaTau, 'o', label=f'Rratio: {Rratio}')
+                
+                #Need to Work on customizing markers based on parameters
+                """#customize marker based on parameters
+                marker = 'o' if incl == '10.0' else 's' if incl == '30.0' else 'D' if incl == '50.0' else '^'
+                color = 'red' if bhspin == -0.94 else 'orange' if bhspin == -0.5 else 'green' if bhspin == 0.0 else 'blue' if bhspin == 0.5 else 'purple'
+                fillstyle = 'none' if Rratio == 10 else 'bottom' if Rratio == 40 else 'full'
+                size = 1 if field == 'S' else 2
+
+                # plot on respective subplot
+                fieldPlot.plot(field, D1_at_deltaTau, marker=marker, markersize=size, color=color, fillstyle=fillstyle, label=f'Field: {field}')
+                inclPlot.plot(float(incl), D1_at_deltaTau, marker=marker, markersize=size, color=color, fillstyle=fillstyle, label=f'Incl: {incl}')
+                bhspinPlot.plot(bhspin, D1_at_deltaTau, marker=marker, markersize=size, color=color, fillstyle=fillstyle, label=f'Spin: {bhspin}')
+                rratioPlot.plot(Rratio, D1_at_deltaTau, marker=marker, markersize=size, color=color, fillstyle=fillstyle, label=f'Rratio: {Rratio}')"""
+                
                 
 #################################
 #  Reading EHT Data
@@ -93,7 +100,7 @@ EHT_D1_list = np.array(D1_list)
 #################################
 
 for ax in [fieldPlot, inclPlot, bhspinPlot, rratioPlot]:
-    ax.set_ylim([0.00008, 1])
+    ax.set_ylim([0.0008, 1])
     ax.set_ylabel(fr'Log $[D^1(\tau)]$ @ $\tau$={deltaTau} hr')
     ax.set_yscale('log')  # set y-axis to logarithmic scale
     ax.axhspan(
