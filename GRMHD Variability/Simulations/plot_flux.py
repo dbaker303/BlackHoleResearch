@@ -44,19 +44,19 @@ plt.figure(figsize=figsize)            # size of the figure
 
 # list of black-hall inclinations
 #possible values ['10.0','30.0','50.0','70.0']
-inclinationsall=['70.0']
+inclinationsall=['10.0']
 
 # list of magnetic field configurations
 #possible values ['S','M']
-fieldall=['S']
+fieldall=['S', 'M']
 
 # list of black-hole spins 
 #possible values [-0.94,-0.5,0.0,0.5,0.94]
-bhallspin=[0.94,0.0,-0.94]
+bhallspin=[-0.5]
 
 # list of temperature ratios
 #possible values [10,40,160]
-Rratioall=[10]
+Rratioall=[10, 160]
 
 # go through all lists of parameters
 for field in fieldall:

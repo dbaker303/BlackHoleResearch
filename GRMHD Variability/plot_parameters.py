@@ -1,10 +1,8 @@
 import numpy as np                     # imports library for math
 import matplotlib.pyplot as plt        # import library for plots
 from matplotlib import rcParams        # import to change plot parameters
-import pandas as pd                    # import pandas for reading data
-
-#from plotsf import sliding_structFunc_opt # import the structure function code
-from EHT_Data.Plots.readarray import readSMA, readALMA # import readarray code
+import mplcursors
+import random
 
 
 ###############################
@@ -18,12 +16,13 @@ fieldPlot, inclPlot = axes[0]  # first row
 bhspinPlot, rratioPlot = axes[1]  # second row
 
 # time lag size in hours to compute structure function and compare results
-deltaTau = 0.3 # hours
+deltaTau = 0.5 # hours
 
 #################################
 #  Reading Simulation
 #################################
 
+sim_data = []
 
 inclinationsall=['10.0','30.0','50.0','70.0'] #corresponds to shapes circle, square, diamond, triangle
 fieldall=['S','M'] # size of marker
@@ -53,6 +52,15 @@ for field in fieldall:
                 bhspinPlot.plot(bhspin, D1_at_deltaTau, 'o', label=f'Spin: {bhspin}')
                 rratioPlot.plot(Rratio, D1_at_deltaTau, 'o', label=f'Rratio: {Rratio}')
                 
+                """sim_data.append({
+                    "field": field,
+                    "incl": float(incl),
+                    "bhspin": bhspin,
+                    "Rratio": Rratio,
+                    "D1": D1_at_deltaTau,
+                    "type": 'n'  # default type
+                })"""
+                
                 #Need to Work on customizing markers based on parameters
                 """#customize marker based on parameters
                 marker = 'o' if incl == '10.0' else 's' if incl == '30.0' else 'D' if incl == '50.0' else '^'
@@ -65,8 +73,69 @@ for field in fieldall:
                 inclPlot.plot(float(incl), D1_at_deltaTau, marker=marker, markersize=size, color=color, fillstyle=fillstyle, label=f'Incl: {incl}')
                 bhspinPlot.plot(bhspin, D1_at_deltaTau, marker=marker, markersize=size, color=color, fillstyle=fillstyle, label=f'Spin: {bhspin}')
                 rratioPlot.plot(Rratio, D1_at_deltaTau, marker=marker, markersize=size, color=color, fillstyle=fillstyle, label=f'Rratio: {Rratio}')"""
-                
-                
+
+##################################
+#  Connecting lines between points
+##################################
+
+"""POIs = [
+    {'incl':10.0, 'bhspin':-0.5, 'Rratio':160, 'field':'S'},
+    {'incl':30.0, 'bhspin':-0.5, 'Rratio':160, 'field':'S'},
+    {'incl':10.0, 'bhspin':-0.5, 'Rratio':40, 'field':'S'}
+]
+
+for poi in POIs:
+    for d in sim_data:
+        if all(d[k] == poi[k] for k in poi):
+            d['type'] = 'o'
+
+def plot_points_with_outliers(ax, x_key, group_keys, max_normal_lines=10):
+    scatter_x, scatter_y = [], []
+
+    # Collect all groups
+    groups = {}
+    for d in sim_data:
+        key = tuple(d[k] for k in group_keys)
+        groups.setdefault(key, []).append(d)
+
+    normal_groups = []
+    outlier_groups = []
+
+    for group in groups.values():
+        if any(d['type']=='o' for d in group):
+            outlier_groups.append(group)
+        else:
+            normal_groups.append(group)
+
+    # Randomly keep a few normal lines
+    if len(normal_groups) > max_normal_lines:
+        normal_groups = random.sample(normal_groups, max_normal_lines)
+
+    # Combine with outlier groups
+    plot_groups = outlier_groups + normal_groups
+
+    # Plot lines and gather scatter points
+    for group in plot_groups:
+        x_vals = [d[x_key] for d in group]
+        y_vals = [d['D1'] for d in group]
+
+        # Red if any outlier, else black
+        line_color = 'red' if any(d['type']=='o' for d in group) else 'black'
+        ax.plot(x_vals, y_vals, '-', color=line_color, alpha=0.8, linewidth=1.5, zorder=1)
+
+        scatter_x.extend(x_vals)
+        scatter_y.extend(y_vals)
+
+    # Scatter all points
+    sc = ax.scatter([d[x_key] for d in sim_data], [d['D1'] for d in sim_data], zorder=2)
+    return sc
+
+sc_field  = plot_points_with_outliers(fieldPlot, 'field', ['incl','bhspin','Rratio'])
+sc_incl   = plot_points_with_outliers(inclPlot, 'incl', ['field','bhspin','Rratio'])
+sc_spin   = plot_points_with_outliers(bhspinPlot, 'bhspin', ['field','incl','Rratio'])
+sc_rratio = plot_points_with_outliers(rratioPlot, 'Rratio', ['field','incl','bhspin'])"""
+
+
 #################################
 #  Reading EHT Data
 ################################# 
@@ -125,6 +194,17 @@ rratioPlot.set_title('Structure Function vs Rratio')
 rratioPlot.set_xlabel('Rratio')
 rratioPlot.set_xticks([10,40,160])  # set x-ticks to Rratio values
 
+"""def make_hover(scatter):
+    cursor = mplcursors.cursor(scatter, hover=True)
+    @cursor.connect("add")
+    def on_hover(sel):
+        d = sim_data[sel.index]
+        sel.annotation.set_text(
+            f"Field: {d['field']}\nIncl: {d['incl']}\nSpin: {d['bhspin']}\nRratio: {d['Rratio']}\nD1: {d['D1']:.4f}"
+        )
+
+for sc in [sc_field, sc_incl, sc_spin, sc_rratio]:
+    make_hover(sc)"""
 
 plt.tight_layout()
 plt.show()
