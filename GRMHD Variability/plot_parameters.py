@@ -47,19 +47,19 @@ for field in fieldall:
                 idx = np.argmin(np.abs(tlag - deltaTau)) # find index of closest time lag to deltaTau
                 D1_at_deltaTau = D1[idx] # get the structure function value at that index
                 
-                fieldPlot.plot(field, D1_at_deltaTau, 'o', label=f'Field: {field}')
+                """fieldPlot.plot(field, D1_at_deltaTau, 'o', label=f'Field: {field}')
                 inclPlot.plot(float(incl), D1_at_deltaTau, 'o', label=f'Incl: {incl}')
                 bhspinPlot.plot(bhspin, D1_at_deltaTau, 'o', label=f'Spin: {bhspin}')
-                rratioPlot.plot(Rratio, D1_at_deltaTau, 'o', label=f'Rratio: {Rratio}')
+                rratioPlot.plot(Rratio, D1_at_deltaTau, 'o', label=f'Rratio: {Rratio}')"""
                 
-                """sim_data.append({
+                sim_data.append({
                     "field": field,
                     "incl": float(incl),
                     "bhspin": bhspin,
                     "Rratio": Rratio,
                     "D1": D1_at_deltaTau,
                     "type": 'n'  # default type
-                })"""
+                })
                 
                 #Need to Work on customizing markers based on parameters
                 """#customize marker based on parameters
@@ -78,7 +78,7 @@ for field in fieldall:
 #  Connecting lines between points
 ##################################
 
-"""POIs = [
+POIs = [
     {'incl':10.0, 'bhspin':-0.5, 'Rratio':160, 'field':'S'},
     {'incl':30.0, 'bhspin':-0.5, 'Rratio':160, 'field':'S'},
     {'incl':10.0, 'bhspin':-0.5, 'Rratio':40, 'field':'S'}
@@ -133,7 +133,7 @@ def plot_points_with_outliers(ax, x_key, group_keys, max_normal_lines=10):
 sc_field  = plot_points_with_outliers(fieldPlot, 'field', ['incl','bhspin','Rratio'])
 sc_incl   = plot_points_with_outliers(inclPlot, 'incl', ['field','bhspin','Rratio'])
 sc_spin   = plot_points_with_outliers(bhspinPlot, 'bhspin', ['field','incl','Rratio'])
-sc_rratio = plot_points_with_outliers(rratioPlot, 'Rratio', ['field','incl','bhspin'])"""
+sc_rratio = plot_points_with_outliers(rratioPlot, 'Rratio', ['field','incl','bhspin'])
 
 
 #################################
@@ -194,7 +194,7 @@ rratioPlot.set_title('Structure Function vs Rratio')
 rratioPlot.set_xlabel('Rratio')
 rratioPlot.set_xticks([10,40,160])  # set x-ticks to Rratio values
 
-"""def make_hover(scatter):
+def make_hover(scatter):
     cursor = mplcursors.cursor(scatter, hover=True)
     @cursor.connect("add")
     def on_hover(sel):
@@ -204,7 +204,7 @@ rratioPlot.set_xticks([10,40,160])  # set x-ticks to Rratio values
         )
 
 for sc in [sc_field, sc_incl, sc_spin, sc_rratio]:
-    make_hover(sc)"""
+    make_hover(sc)
 
 plt.tight_layout()
 plt.show()
