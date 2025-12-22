@@ -100,7 +100,7 @@ def load_h5_folder(folder_path, reader="IL"):
     if not h5_files:
         raise FileNotFoundError("No .h5 files found in folder: " + folder_path)
 
-    print(f"\n📁 Found {len(h5_files)} .h5 snapshot files.\n")
+    print(f"Found {len(h5_files)} .h5 snapshot files")
 
     snapshots = []
     for fpath in h5_files:
@@ -108,8 +108,8 @@ def load_h5_folder(folder_path, reader="IL"):
             snapshots.append(readGRMHD_IL(fpath))
         else:
             snapshots.append(readGRMHD_FRA(fpath))
-        print(f"✅ Loaded: {os.path.basename(fpath)}")
 
+    print(f"Loaded all {len(snapshots)} snapshots")
     return snapshots
 
 # --------------------------------------------------------------
@@ -118,11 +118,12 @@ def load_h5_folder(folder_path, reader="IL"):
 
 def make_movie_from_snapshots(snapshots, outfile="movie.mp4", fps=10, params=None):
     """Create an mp4 movie from loaded GRMHD snapshots with title screen."""
-    print(f"\n🎬 Creating movie: {outfile}\n")
+    print(f"Creating movie with {len(snapshots)} frames...")
 
     Npts, X, Y, I0 = snapshots[0]
 
     fig, ax = plt.subplots(figsize=(10, 10))
+    fig.patch.set_facecolor('black')  # Set figure background to black initially
     
     # Create image plot
     im = ax.imshow(
@@ -133,27 +134,27 @@ def make_movie_from_snapshots(snapshots, outfile="movie.mp4", fps=10, params=Non
         animated=True,
     )
 
-    ax.set_xlabel("X [GM/c²]", fontsize=12)
-    ax.set_ylabel("Y [GM/c²]", fontsize=12)
+    ax.set_xlabel("X [GM/c²]", fontsize=12, color='white')
+    ax.set_ylabel("Y [GM/c²]", fontsize=12, color='white')
     
-    # Text objects for title screen with absolute positioning
+    # Text objects for title screen with absolute positioning (on figure, not axes)
     # Title at 75% of figure height (25% from top)
-    title_text = ax.text(0.5, 0.75, "", transform=fig.transFigure, 
-                        ha='center', va='center', fontsize=24, 
-                        weight='bold', color='white')
+    title_text = fig.text(0.5, 0.75, "", 
+                         ha='center', va='center', fontsize=24, 
+                         weight='bold', color='white', zorder=1000)
     
     # Parameters at 50% of figure height (middle of remaining space) 
-    param_text = ax.text(0.5, 0.50, "", transform=fig.transFigure,
-                        ha='center', va='center', fontsize=14, 
-                        color='white', family='monospace')
+    param_text = fig.text(0.5, 0.50, "",
+                         ha='center', va='center', fontsize=14, 
+                         color='white', family='monospace', zorder=1000)
     
-    credit_text = ax.text(0.95, 0.05, "", transform=fig.transFigure,
-                         ha='right', va='bottom', fontsize=12,
-                         color='white', style='italic')
+    credit_text = fig.text(0.95, 0.05, "",
+                          ha='right', va='bottom', fontsize=12,
+                          color='white', style='italic', zorder=1000)
     
-    frame_title = ax.text(0.5, 0.98, "", transform=fig.transFigure,
-                         ha='center', va='top', fontsize=14,
-                         color='white')
+    frame_title = fig.text(0.5, 0.98, "",
+                          ha='center', va='top', fontsize=14,
+                          color='white', zorder=1000)
 
     # Number of frames for title screen (5 seconds)
     title_frames = int(5 * fps)
@@ -161,10 +162,9 @@ def make_movie_from_snapshots(snapshots, outfile="movie.mp4", fps=10, params=Non
 
     def update(i):
         if i < title_frames:
-            # Title screen - hide axes and show black background
-            ax.set_visible(False)  # Hide the axes completely
-            im.set_array(np.zeros_like(I0))
-            im.set_visible(False)  # Hide the image
+            # Title screen - hide axes and image
+            ax.set_visible(False)
+            im.set_visible(False)
             
             title_text.set_text("GRMHD SgrA* Simulation")
             
@@ -192,8 +192,8 @@ def make_movie_from_snapshots(snapshots, outfile="movie.mp4", fps=10, params=Non
             
         else:
             # Simulation frames - show axes and data
-            ax.set_visible(True)  # Show the axes
-            im.set_visible(True)  # Show the image
+            ax.set_visible(True)
+            im.set_visible(True)
             
             snapshot_idx = i - title_frames
             _, X, Y, I = snapshots[snapshot_idx]
@@ -215,7 +215,7 @@ def make_movie_from_snapshots(snapshots, outfile="movie.mp4", fps=10, params=Non
     ani.save(outfile, writer=writer)
 
     plt.close(fig)  # Clean up the figure
-    print(f"\n✅ Movie saved to {outfile}\n")
+    print(f"Movie saved successfully: {outfile}")
 
 # --------------------------------------------------------------
 # MAIN
@@ -269,7 +269,6 @@ if __name__ == "__main__":
         params = None
         if args.filename:
             params = extract_parameters(args.filename)
-            print(f"\n📊 Extracted parameters: {params}\n")
         
         snapshots = load_h5_folder(args.folder, reader=args.reader)
         make_movie_from_snapshots(
@@ -279,6 +278,6 @@ if __name__ == "__main__":
             params=params
         )
     except Exception as e:
-        print(f"❌ Error: {e}")
+        print(f"ERROR: {e}")
         import sys
         sys.exit(1)
