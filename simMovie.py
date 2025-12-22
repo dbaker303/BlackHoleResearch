@@ -124,9 +124,9 @@ def make_movie_from_snapshots(snapshots, outfile="movie.mp4", fps=10, params=Non
 
     fig, ax = plt.subplots(figsize=(10, 10))
     
-    # Initial blank frame for title screen
+    # Create image plot
     im = ax.imshow(
-        np.zeros_like(I0),
+        I0,
         extent=[X.min(), X.max(), Y.min(), Y.max()],
         origin="lower",
         cmap="inferno",
@@ -161,8 +161,11 @@ def make_movie_from_snapshots(snapshots, outfile="movie.mp4", fps=10, params=Non
 
     def update(i):
         if i < title_frames:
-            # Title screen
+            # Title screen - hide axes and show black background
+            ax.set_visible(False)  # Hide the axes completely
             im.set_array(np.zeros_like(I0))
+            im.set_visible(False)  # Hide the image
+            
             title_text.set_text("GRMHD SgrA* Simulation")
             
             # Build parameter text
@@ -185,18 +188,24 @@ def make_movie_from_snapshots(snapshots, outfile="movie.mp4", fps=10, params=Non
             
             credit_text.set_text("Movie made by David Baker")
             frame_title.set_text("")
-            ax.set_facecolor('black')
+            fig.patch.set_facecolor('black')
             
         else:
-            # Simulation frames
+            # Simulation frames - show axes and data
+            ax.set_visible(True)  # Show the axes
+            im.set_visible(True)  # Show the image
+            
             snapshot_idx = i - title_frames
             _, X, Y, I = snapshots[snapshot_idx]
             im.set_array(I)
+            im.set_extent([X.min(), X.max(), Y.min(), Y.max()])
+            
+            # Clear title screen text
             title_text.set_text("")
             param_text.set_text("")
             credit_text.set_text("")
             frame_title.set_text(f"GRMHD Frame {snapshot_idx+1}/{len(snapshots)}")
-            ax.set_facecolor('white')
+            fig.patch.set_facecolor('white')
         
         return [im, title_text, param_text, credit_text, frame_title]
 
