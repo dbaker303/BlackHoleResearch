@@ -164,43 +164,52 @@ def make_movie_from_snapshots(snapshots, outfile="movie.mp4", fps=10, params=Non
     # Black tick marks
     ax.tick_params(axis='both', colors='black', direction='out', length=4, width=1, labelsize=9)
     
-    # Text objects for title screen - using figure coordinates
-    title_text = fig.text(0.5, 0.75, "", 
+    # Text objects for title screen - using AXES coordinates (not figure)
+    # This ensures they render properly with blit=True
+    title_text = ax.text(0.5, 0.75, "", transform=ax.transAxes,
                          ha='center', va='center', fontsize=24, 
-                         weight='bold', color='white',
-                         transform=fig.transFigure)
+                         weight='bold', color='white', zorder=100)
     
-    param_text = fig.text(0.5, 0.50, "",
+    param_text = ax.text(0.5, 0.50, "", transform=ax.transAxes,
                          ha='center', va='center', fontsize=14, 
-                         color='white', family='monospace',
-                         transform=fig.transFigure)
+                         color='white', family='monospace', zorder=100)
     
-    credit_text = fig.text(0.95, 0.05, "",
+    credit_text = ax.text(0.95, 0.05, "", transform=ax.transAxes,
                           ha='right', va='bottom', fontsize=12,
-                          color='white', style='italic',
-                          transform=fig.transFigure)
+                          color='white', style='italic', zorder=100)
     
-    frame_title = fig.text(0.5, 0.98, "",
+    frame_title = ax.text(0.5, 0.98, "", transform=ax.transAxes,
                           ha='center', va='top', fontsize=14,
-                          color='white',
-                          transform=fig.transFigure)
+                          color='black', zorder=100)
 
     # Number of frames for title screen (5 seconds)
     title_frames = int(5 * fps)
     total_frames = title_frames + len(snapshots)
 
     def update(i):
+        artists = []
+        
         if i < title_frames:
             # TITLE SCREEN
-            # Hide axes
-            ax.set_visible(False)
-            
-            # Set figure background to black
+            # Set backgrounds to black
+            ax.set_facecolor('black')
             fig.patch.set_facecolor('black')
+            
+            # Hide the image by making it transparent
+            im.set_alpha(0)
+            
+            # Hide axis elements (spines, ticks, labels)
+            for spine in ax.spines.values():
+                spine.set_visible(False)
+            ax.set_xticks([])
+            ax.set_yticks([])
+            ax.set_xlabel("")
+            ax.set_ylabel("")
             
             # Show title text
             title_text.set_text("GRMHD SgrA* Simulation")
             title_text.set_visible(True)
+            artists.append(title_text)
             
             # Build and show parameter text
             if params:
@@ -218,36 +227,46 @@ def make_movie_from_snapshots(snapshots, outfile="movie.mp4", fps=10, params=Non
                 
                 param_text.set_text('\n'.join(param_lines))
                 param_text.set_visible(True)
+                artists.append(param_text)
             
             # Show credit
             credit_text.set_text("Movie made by David Baker")
             credit_text.set_visible(True)
+            artists.append(credit_text)
             
             # Hide frame title
             frame_title.set_visible(False)
             
         else:
             # SIMULATION FRAMES
-            # Show axes
-            ax.set_visible(True)
-            
-            # Set figure background to white
+            # Set backgrounds to white
+            ax.set_facecolor('white')
             fig.patch.set_facecolor('white')
             
-            # Black spines and ticks for white background
+            # Make image visible again
+            im.set_alpha(1)
+            
+            # Show axis elements (spines, ticks, labels)
             for spine in ax.spines.values():
+                spine.set_visible(True)
                 spine.set_color('black')
                 spine.set_linewidth(1)
             
-            ax.tick_params(axis='both', colors='black', direction='out', length=4, width=1)
-            ax.xaxis.label.set_color('black')
-            ax.yaxis.label.set_color('black')
+            # Restore ticks
+            ax.set_xticks(x_ticks)
+            ax.set_yticks(y_ticks)
+            ax.tick_params(axis='both', colors='black', direction='out', length=4, width=1, labelsize=9)
+            
+            # Restore axis labels
+            ax.set_xlabel("X [GM/c²]", fontsize=10, color='black')
+            ax.set_ylabel("Y [GM/c²]", fontsize=10, color='black')
             
             # Update image data
             snapshot_idx = i - title_frames
             _, X, Y, I = snapshots[snapshot_idx]
             im.set_array(I)
             im.set_extent([X.min(), X.max(), Y.min(), Y.max()])
+            artists.append(im)
             
             # Hide title screen text
             title_text.set_visible(False)
@@ -258,8 +277,9 @@ def make_movie_from_snapshots(snapshots, outfile="movie.mp4", fps=10, params=Non
             frame_title.set_text(f"GRMHD Frame {snapshot_idx+1}/{len(snapshots)}")
             frame_title.set_color('black')
             frame_title.set_visible(True)
+            artists.append(frame_title)
         
-        return [im, title_text, param_text, credit_text, frame_title]
+        return artists
 
     ani = FuncAnimation(fig, update, frames=total_frames, blit=True, interval=1000/fps)
 
