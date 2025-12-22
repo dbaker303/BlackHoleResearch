@@ -122,8 +122,11 @@ def make_movie_from_snapshots(snapshots, outfile="movie.mp4", fps=10, params=Non
 
     Npts, X, Y, I0 = snapshots[0]
 
-    fig, ax = plt.subplots(figsize=(10, 10))
-    fig.patch.set_facecolor('black')  # Set figure background to black initially
+    fig = plt.figure(figsize=(10, 10))
+    
+    # Create axes with reduced padding (half the default)
+    # [left, bottom, width, height] - tighter margins
+    ax = fig.add_axes([0.08, 0.08, 0.84, 0.84])  # Reduced from default ~0.125 margins
     
     # Create image plot
     im = ax.imshow(
@@ -134,27 +137,53 @@ def make_movie_from_snapshots(snapshots, outfile="movie.mp4", fps=10, params=Non
         animated=True,
     )
 
-    ax.set_xlabel("X [GM/c²]", fontsize=12, color='white')
-    ax.set_ylabel("Y [GM/c²]", fontsize=12, color='white')
+    # Configure axes  
+    ax.set_xlabel("X [GM/c²]", fontsize=10, color='black')
+    ax.set_ylabel("Y [GM/c²]", fontsize=10, color='black')
     
-    # Text objects for title screen with absolute positioning (on figure, not axes)
-    # Title at 75% of figure height (25% from top)
+    # Calculate evenly-spaced ticks based on data range
+    x_min, x_max = X.min(), X.max()
+    y_min, y_max = Y.min(), Y.max()
+    
+    # Create 5 evenly spaced ticks (fewer ticks = no overlap, cleaner)
+    x_ticks = np.linspace(x_min, x_max, 5)
+    y_ticks = np.linspace(y_min, y_max, 5)
+    
+    ax.set_xticks(x_ticks)
+    ax.set_yticks(y_ticks)
+    
+    # Format tick labels to avoid too many decimal places
+    ax.xaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{x:.0f}' if abs(x) >= 1 else f'{x:.1f}'))
+    ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda y, p: f'{y:.0f}' if abs(y) >= 1 else f'{y:.1f}'))
+    
+    # Black spines and ticks for visibility on white background
+    for spine in ax.spines.values():
+        spine.set_color('black')
+        spine.set_linewidth(1)
+    
+    # Black tick marks
+    ax.tick_params(axis='both', colors='black', direction='out', length=4, width=1, labelsize=9)
+    
+    # Text objects for title screen - using figure coordinates
     title_text = fig.text(0.5, 0.75, "", 
                          ha='center', va='center', fontsize=24, 
-                         weight='bold', color='white', zorder=1000)
+                         weight='bold', color='white',
+                         transform=fig.transFigure)
     
-    # Parameters at 50% of figure height (middle of remaining space) 
     param_text = fig.text(0.5, 0.50, "",
                          ha='center', va='center', fontsize=14, 
-                         color='white', family='monospace', zorder=1000)
+                         color='white', family='monospace',
+                         transform=fig.transFigure)
     
     credit_text = fig.text(0.95, 0.05, "",
                           ha='right', va='bottom', fontsize=12,
-                          color='white', style='italic', zorder=1000)
+                          color='white', style='italic',
+                          transform=fig.transFigure)
     
     frame_title = fig.text(0.5, 0.98, "",
                           ha='center', va='top', fontsize=14,
-                          color='white', zorder=1000)
+                          color='white',
+                          transform=fig.transFigure)
 
     # Number of frames for title screen (5 seconds)
     title_frames = int(5 * fps)
@@ -162,13 +191,18 @@ def make_movie_from_snapshots(snapshots, outfile="movie.mp4", fps=10, params=Non
 
     def update(i):
         if i < title_frames:
-            # Title screen - hide axes and image
+            # TITLE SCREEN
+            # Hide axes
             ax.set_visible(False)
-            im.set_visible(False)
             
+            # Set figure background to black
+            fig.patch.set_facecolor('black')
+            
+            # Show title text
             title_text.set_text("GRMHD SgrA* Simulation")
+            title_text.set_visible(True)
             
-            # Build parameter text
+            # Build and show parameter text
             if params:
                 param_lines = []
                 if 'frequency' in params:
@@ -183,38 +217,56 @@ def make_movie_from_snapshots(snapshots, outfile="movie.mp4", fps=10, params=Non
                     param_lines.append(f"R_high: {params['rhigh']}")
                 
                 param_text.set_text('\n'.join(param_lines))
-            else:
-                param_text.set_text("")
+                param_text.set_visible(True)
             
+            # Show credit
             credit_text.set_text("Movie made by David Baker")
-            frame_title.set_text("")
-            fig.patch.set_facecolor('black')
+            credit_text.set_visible(True)
+            
+            # Hide frame title
+            frame_title.set_visible(False)
             
         else:
-            # Simulation frames - show axes and data
+            # SIMULATION FRAMES
+            # Show axes
             ax.set_visible(True)
-            im.set_visible(True)
             
+            # Set figure background to white
+            fig.patch.set_facecolor('white')
+            
+            # Black spines and ticks for white background
+            for spine in ax.spines.values():
+                spine.set_color('black')
+                spine.set_linewidth(1)
+            
+            ax.tick_params(axis='both', colors='black', direction='out', length=4, width=1)
+            ax.xaxis.label.set_color('black')
+            ax.yaxis.label.set_color('black')
+            
+            # Update image data
             snapshot_idx = i - title_frames
             _, X, Y, I = snapshots[snapshot_idx]
             im.set_array(I)
             im.set_extent([X.min(), X.max(), Y.min(), Y.max()])
             
-            # Clear title screen text
-            title_text.set_text("")
-            param_text.set_text("")
-            credit_text.set_text("")
+            # Hide title screen text
+            title_text.set_visible(False)
+            param_text.set_visible(False)
+            credit_text.set_visible(False)
+            
+            # Show frame counter
             frame_title.set_text(f"GRMHD Frame {snapshot_idx+1}/{len(snapshots)}")
-            fig.patch.set_facecolor('white')
+            frame_title.set_color('black')
+            frame_title.set_visible(True)
         
         return [im, title_text, param_text, credit_text, frame_title]
 
-    ani = FuncAnimation(fig, update, frames=total_frames, blit=True)
+    ani = FuncAnimation(fig, update, frames=total_frames, blit=True, interval=1000/fps)
 
-    writer = FFMpegWriter(fps=fps)
+    writer = FFMpegWriter(fps=fps, bitrate=1800)
     ani.save(outfile, writer=writer)
 
-    plt.close(fig)  # Clean up the figure
+    plt.close(fig)
     print(f"Movie saved successfully: {outfile}")
 
 # --------------------------------------------------------------
