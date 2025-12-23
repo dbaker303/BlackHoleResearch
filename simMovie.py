@@ -8,7 +8,7 @@ import numpy as np
 import h5py
 
 import matplotlib
-matplotlib.use("Agg")  # headless-safe
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation, FFMpegWriter
 
@@ -16,50 +16,51 @@ from matplotlib.animation import FuncAnimation, FFMpegWriter
 FONTFILE_DEFAULT = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
 
 
-# ============================================================
-# Filename parameter parsing (underscore-delimited safe)
-# Example: 2022_sgra_230GHz_Ma+0.5_w5_i_10_PA_0_Rhigh_10
-# ============================================================
-
+# ----------------------------
+# Filename parameter parsing
+# ----------------------------
 def extract_parameters(name: str) -> dict:
-    """
-    Robust parsing for underscore-delimited tokens.
-    Avoids regex word-boundary issues with '_' (underscore is a "word char").
-    """
     params = {}
 
-    # Frequency: 230GHz
     m = re.search(r"(\d+)\s*GHz", name, flags=re.IGNORECASE)
     if m:
         params["frequency"] = m.group(1)
 
-    # Spin: token like _Ma+0.5_ or starts/ends
     m = re.search(r"(?:^|_)Ma([+\-]?\d*\.?\d+)(?:_|$)", name)
     if m:
         params["spin"] = m.group(1)
 
-    # Inclination: _i_10_
     m = re.search(r"(?:^|_)i_(\d+)(?:_|$)", name, flags=re.IGNORECASE)
     if m:
         params["inclination"] = m.group(1)
 
-    # Position angle: _PA_0_ (or pa)
-    m = re.search(r"(?:^|_)(?:PA|pa)_([+\-]?\d*\.?\d+)(?:_|$)", name)
-    if m:
-        params["pa"] = m.group(1)
-
-    # Rhigh: _Rhigh_10_
     m = re.search(r"(?:^|_)Rhigh_(\d+)(?:_|$)", name, flags=re.IGNORECASE)
     if m:
         params["rhigh"] = m.group(1)
 
+    # Intentionally NOT parsing PA (you said you don't want it shown)
     return params
 
 
-# ============================================================
-# HDF5 utilities: auto-detect a 2D image dataset
-# ============================================================
+def build_param_lines(params: dict) -> list[str]:
+    lines = []
+    if not params:
+        return lines
 
+    if "frequency" in params:
+        lines.append(f"Frequency: {params['frequency']} GHz")
+    if "spin" in params:
+        lines.append(f"Spin (a): {params['spin']}")
+    if "inclination" in params:
+        lines.append(f"Inclination (i): {params['inclination']}°")
+    if "rhigh" in params:
+        lines.append(f"R_high: {params['rhigh']}")
+    return lines
+
+
+# ----------------------------
+# HDF5 frame discovery
+# ----------------------------
 def list_h5_files(folder: str) -> list[str]:
     if not os.path.isdir(folder):
         raise FileNotFoundError(f"Folder not found: {folder}")
@@ -74,6 +75,65 @@ def list_h5_files(folder: str) -> list[str]:
     return h5s
 
 
+# ----------------------------
+# Your professor’s guidance:
+# Use header/camera/dx and header/camera/nx to set GM/c^2 axes
+# ----------------------------
+def read_grmhd_with_units(file: str):
+    """
+    Try to read harm+iPole/BHAC-style image using known keys:
+      header/camera/dx, header/camera/nx, header/scale, unpol
+
+    Returns:
+      Npts, X, Y, I   where X,Y are GM/c^2 coordinates and I is normalized brightness
+    """
+    with h5py.File(file, "r") as f:
+        # Required keys for physical axes
+        dx_path = "header/camera/dx"
+        nx_path = "header/camera/nx"
+        scale_path = "header/scale"
+        unpol_path = "unpol"
+
+        if dx_path not in f or nx_path not in f or unpol_path not in f:
+            return None  # signal: can't do physical axes
+
+        fov = f[dx_path][()]     # per professor docstring: GM/c^2
+        nx  = int(f[nx_path][()])
+
+        X = np.linspace(-fov/2.0, fov/2.0, nx)
+        Y = np.linspace(-fov/2.0, fov/2.0, nx)
+
+        cgsToJy = f[scale_path][()] if scale_path in f else 1.0
+
+        I = np.array(f[unpol_path]) * cgsToJy
+
+        # Some files may need transpose (IL vs FRA)
+        # If it looks swapped, fix by checking shape against nx
+        if I.ndim == 2 and I.shape[0] == nx and I.shape[1] == nx:
+            pass
+        elif I.ndim == 2 and I.shape[0] == nx and I.shape[1] == nx:
+            pass
+        elif I.ndim == 2 and I.shape[::-1] == (nx, nx):
+            I = I.T
+
+        if I.ndim != 2:
+            return None
+
+        if nx != I.shape[0] or nx != I.shape[1]:
+            # Still not square in expected way
+            return None
+
+        # Normalize to unit peak brightness
+        mx = np.nanmax(I)
+        if mx > 0:
+            I = I / mx
+
+        return nx, X, Y, I
+
+
+# ----------------------------
+# Auto-detect fallback (if units keys missing)
+# ----------------------------
 def _is_numeric_dataset(ds: h5py.Dataset) -> bool:
     return ds.dtype.kind in ("i", "u", "f")
 
@@ -93,7 +153,6 @@ def _as_2d_image(arr: np.ndarray) -> np.ndarray | None:
 
 def detect_image_dataset_path(h5_file: str) -> str:
     prefer_keywords = ("unpol", "ftot", "image", "img", "nulnu", "intensity")
-
     candidates = []
 
     with h5py.File(h5_file, "r") as f:
@@ -101,9 +160,7 @@ def detect_image_dataset_path(h5_file: str) -> str:
             if not isinstance(obj, h5py.Dataset):
                 return
             ds = obj
-            if not _is_numeric_dataset(ds):
-                return
-            if ds.ndim < 2:
+            if not _is_numeric_dataset(ds) or ds.ndim < 2:
                 return
 
             shape = ds.shape
@@ -119,7 +176,6 @@ def detect_image_dataset_path(h5_file: str) -> str:
 
             h = shape[-2]
             w = shape[-1]
-
             score += 30.0 if h == w else 8.0
             score += min((h * w) / 1e5, 60.0)
 
@@ -133,10 +189,7 @@ def detect_image_dataset_path(h5_file: str) -> str:
         f.visititems(visitor)
 
     if not candidates:
-        raise RuntimeError(
-            f"Could not auto-detect a 2D image dataset in: {h5_file}\n"
-            f"Try providing --dataset_path manually after inspecting keys."
-        )
+        raise RuntimeError(f"Could not auto-detect a 2D image dataset in: {h5_file}")
 
     candidates.sort(key=lambda x: x[0], reverse=True)
 
@@ -151,20 +204,19 @@ def detect_image_dataset_path(h5_file: str) -> str:
 
 def read_image_from_h5(h5_file: str, dataset_path: str) -> np.ndarray:
     with h5py.File(h5_file, "r") as f:
-        if dataset_path not in f:
-            raise KeyError(f"Dataset path '{dataset_path}' not found in {h5_file}")
         arr = np.array(f[dataset_path])
-
     img = _as_2d_image(arr)
     if img is None:
         raise RuntimeError(f"Dataset '{dataset_path}' not convertible to 2D. Shape={arr.shape}")
+    mx = np.nanmax(img)
+    if mx > 0:
+        img = img / mx
     return img
 
 
-# ============================================================
-# Movie generation helpers
-# ============================================================
-
+# ----------------------------
+# ffmpeg helpers
+# ----------------------------
 def ffprobe_wh(video_path: str) -> tuple[int, int]:
     try:
         p = subprocess.run(
@@ -181,89 +233,6 @@ def ffprobe_wh(video_path: str) -> tuple[int, int]:
     return 1000, 1000
 
 
-def build_param_lines(params: dict) -> list[str]:
-    lines = []
-    if not params:
-        return lines
-
-    if "frequency" in params:
-        lines.append(f"Frequency: {params['frequency']} GHz")
-    if "spin" in params:
-        lines.append(f"Spin (a): {params['spin']}")
-    if "inclination" in params:
-        lines.append(f"Inclination (i): {params['inclination']}°")
-    """if "pa" in params:
-        lines.append(f"Position Angle: {params['pa']}°")"""
-    if "rhigh" in params:
-        lines.append(f"R_high: {params['rhigh']}")
-    return lines
-
-
-def make_simulation_movie_only(
-    h5_files: list[str],
-    dataset_path: str,
-    outfile: str,
-    fps: int,
-    axis_mode: str = "pixels",
-):
-    img0 = read_image_from_h5(h5_files[0], dataset_path)
-    H, W = img0.shape
-
-    fig = plt.figure(figsize=(10, 10))
-    ax = fig.add_axes([0.08, 0.08, 0.84, 0.84])
-    fig.patch.set_facecolor("white")
-    ax.set_facecolor("white")
-
-    if axis_mode == "pixels":
-        extent = [0, W, 0, H]
-        ax.set_xlabel("X [pixels]", fontsize=10, color="black")
-        ax.set_ylabel("Y [pixels]", fontsize=10, color="black")
-        for spine in ax.spines.values():
-            spine.set_color("black")
-            spine.set_linewidth(1)
-        ax.tick_params(axis="both", colors="black", direction="out", length=4, width=1, labelsize=9)
-    else:
-        extent = None
-        ax.set_axis_off()
-
-    im = ax.imshow(
-        img0,
-        origin="lower",
-        cmap="afmhot",
-        extent=extent
-    )
-
-    # Make overlays visible on dark image: white text with semi-transparent black box
-    overlay_box = dict(facecolor="black", alpha=0.45, edgecolor="none", boxstyle="round,pad=0.25")
-
-    frame_title = ax.text(
-        0.5, 0.98, "",
-        transform=ax.transAxes,
-        ha="center", va="top",
-        fontsize=14, color="white", zorder=200,
-        bbox=overlay_box
-    )
-
-    fps_text = ax.text(
-        0.98, 0.98, f"FPS: {fps}",
-        transform=ax.transAxes,
-        ha="right", va="top",
-        fontsize=12, color="white", zorder=200,
-        bbox=overlay_box
-    )
-
-    def update(i):
-        img = read_image_from_h5(h5_files[i], dataset_path)
-        im.set_array(img)
-        frame_title.set_text(f"Frame {i+1}/{len(h5_files)}")
-        return []
-
-    ani = FuncAnimation(fig, update, frames=len(h5_files), blit=False, interval=1000 / fps)
-    writer = FFMpegWriter(fps=fps, bitrate=1800)
-    ani.save(outfile, writer=writer)
-    plt.close(fig)
-
-
 def _ff_escape_text(s: str) -> str:
     s = s.replace("\\", "\\\\")
     s = s.replace(":", "\\:")
@@ -271,31 +240,15 @@ def _ff_escape_text(s: str) -> str:
     return s
 
 
-def make_title_clip_ffmpeg(
-    title_mp4: str,
-    w: int,
-    h: int,
-    fps: int,
-    duration_s: int,
-    title_line: str,
-    param_lines: list[str],
-    credit_line: str,
-    fontfile: str,
-):
-    """
-    Title slide:
-      - centered title
-      - each parameter line centered
-      - moved down a bit
-      - evenly spaced parameter lines
-    """
+def make_title_clip_ffmpeg(title_mp4: str, w: int, h: int, fps: int, duration_s: int,
+                           title_line: str, param_lines: list[str],
+                           credit_line: str, fontfile: str):
     if not os.path.exists(fontfile):
         raise FileNotFoundError(f"Font file not found: {fontfile}")
 
-    # Layout tuning
-    top_y = 0.28          # title y fraction (moved down)
-    params_start = 0.42   # first param y fraction
-    params_end = 0.60     # last param y fraction
+    top_y = 0.28
+    params_start = 0.42
+    params_end = 0.60
     title_fs = 54
     param_fs = 30
     credit_fs = 24
@@ -303,10 +256,9 @@ def make_title_clip_ffmpeg(
 
     filters = []
 
-    title_e = _ff_escape_text(title_line)
     filters.append(
-        f"drawtext=fontfile={fontfile}:text='{title_e}':fontcolor=white:fontsize={title_fs}:"
-        f"x=(w-text_w)/2:y=h*{top_y}"
+        f"drawtext=fontfile={fontfile}:text='{_ff_escape_text(title_line)}':"
+        f"fontcolor=white:fontsize={title_fs}:x=(w-text_w)/2:y=h*{top_y}"
     )
 
     if param_lines:
@@ -318,16 +270,14 @@ def make_title_clip_ffmpeg(
             y_fracs = [params_start + step * i for i in range(n)]
 
         for line, y_frac in zip(param_lines, y_fracs):
-            line_e = _ff_escape_text(line)
             filters.append(
-                f"drawtext=fontfile={fontfile}:text='{line_e}':fontcolor=white:fontsize={param_fs}:"
-                f"x=(w-text_w)/2:y=h*{y_frac}"
+                f"drawtext=fontfile={fontfile}:text='{_ff_escape_text(line)}':"
+                f"fontcolor=white:fontsize={param_fs}:x=(w-text_w)/2:y=h*{y_frac}"
             )
 
-    credit_e = _ff_escape_text(credit_line)
     filters.append(
-        f"drawtext=fontfile={fontfile}:text='{credit_e}':fontcolor=white:fontsize={credit_fs}:"
-        f"x=w-text_w-{margin}:y=h-{margin}"
+        f"drawtext=fontfile={fontfile}:text='{_ff_escape_text(credit_line)}':"
+        f"fontcolor=white:fontsize={credit_fs}:x=w-text_w-{margin}:y=h-{margin}"
     )
 
     vf = ",".join(filters)
@@ -340,7 +290,6 @@ def make_title_clip_ffmpeg(
         "-pix_fmt", "yuv420p",
         title_mp4
     ]
-
     subprocess.run(cmd, check=True)
 
 
@@ -361,46 +310,125 @@ def concat_title_and_sim_reencode(title_mp4: str, sim_mp4: str, final_mp4: str, 
     subprocess.run(cmd, check=True)
 
 
-# ============================================================
-# Main
-# ============================================================
+# ----------------------------
+# Simulation movie
+# ----------------------------
+def make_simulation_movie_only(h5_files: list[str], outfile: str, fps: int, axis_mode: str,
+                               dataset_path_override: str | None):
+    """
+    Uses physical GM/c^2 axes if header keys exist.
+    Otherwise falls back to pixels + auto-detect dataset.
+    """
+    # Try physical-units reader first
+    physical = read_grmhd_with_units(h5_files[0])
 
+    use_physical = physical is not None
+    dataset_path = None
+
+    if use_physical:
+        nx, X, Y, I0 = physical
+        extent = [X.min(), X.max(), Y.min(), Y.max()]
+        xlabel = r"X [$GM/c^2$]"
+        ylabel = r"Y [$GM/c^2$]"
+    else:
+        # fallback
+        if dataset_path_override:
+            dataset_path = dataset_path_override
+        else:
+            dataset_path = detect_image_dataset_path(h5_files[0])
+
+        I0 = read_image_from_h5(h5_files[0], dataset_path)
+        H, W = I0.shape
+        extent = [0, W, 0, H]
+        xlabel = "X [pixels]"
+        ylabel = "Y [pixels]"
+
+    fig = plt.figure(figsize=(10, 10))
+    ax = fig.add_axes([0.08, 0.08, 0.84, 0.84])
+    fig.patch.set_facecolor("white")
+    ax.set_facecolor("white")
+
+    if axis_mode != "none":
+        ax.set_xlabel(xlabel, fontsize=10, color="black")
+        ax.set_ylabel(ylabel, fontsize=10, color="black")
+        for spine in ax.spines.values():
+            spine.set_color("black")
+            spine.set_linewidth(1)
+        ax.tick_params(axis="both", colors="black", direction="out", length=4, width=1, labelsize=9)
+    else:
+        ax.set_axis_off()
+
+    im = ax.imshow(I0, origin="lower", cmap="afmhot", extent=extent)
+
+    overlay_box = dict(facecolor="black", alpha=0.45, edgecolor="none", boxstyle="round,pad=0.25")
+
+    frame_title = ax.text(
+        0.5, 0.98, "",
+        transform=ax.transAxes,
+        ha="center", va="top",
+        fontsize=14, color="white", zorder=200, bbox=overlay_box
+    )
+
+    fps_text = ax.text(
+        0.98, 0.98, f"FPS: {fps}",
+        transform=ax.transAxes,
+        ha="right", va="top",
+        fontsize=12, color="white", zorder=200, bbox=overlay_box
+    )
+
+    def update(i):
+        if use_physical:
+            out = read_grmhd_with_units(h5_files[i])
+            if out is None:
+                raise RuntimeError("Physical header keys disappeared mid-sequence.")
+            _, _, _, Ii = out
+        else:
+            Ii = read_image_from_h5(h5_files[i], dataset_path)
+
+        im.set_array(Ii)
+        frame_title.set_text(f"Frame {i+1}/{len(h5_files)}")
+        return []
+
+    ani = FuncAnimation(fig, update, frames=len(h5_files), blit=False, interval=1000 / fps)
+    writer = FFMpegWriter(fps=fps, bitrate=1800)
+    ani.save(outfile, writer=writer)
+    plt.close(fig)
+
+
+# ----------------------------
+# Main
+# ----------------------------
 def main():
-    ap = argparse.ArgumentParser(description="Create a GRMHD movie from extracted .h5 frames with a title card.")
-    ap.add_argument("folder", type=str, help="Folder containing extracted .h5 frames")
-    ap.add_argument("--outfile", type=str, required=True, help="Output mp4")
+    ap = argparse.ArgumentParser()
+    ap.add_argument("folder", type=str)
+    ap.add_argument("--outfile", type=str, required=True)
     ap.add_argument("--fps", type=int, default=10)
-    ap.add_argument("--filename", type=str, default=None, help="Basename for parameter parsing")
+    ap.add_argument("--filename", type=str, default=None)
     ap.add_argument("--title_seconds", type=int, default=5)
     ap.add_argument("--fontfile", type=str, default=FONTFILE_DEFAULT)
     ap.add_argument("--axis_mode", type=str, default="pixels", choices=["pixels", "none"])
     ap.add_argument("--dataset_path", type=str, default=None,
-                    help="Optional: manually set image dataset path inside HDF5")
+                    help="Override dataset path for fallback mode (when header keys missing)")
     args = ap.parse_args()
 
     h5_files = list_h5_files(args.folder)
 
-    dataset_path = args.dataset_path
-    if not dataset_path:
-        dataset_path = detect_image_dataset_path(h5_files[0])
-
     params = extract_parameters(args.filename) if args.filename else {}
+
     out_abs = os.path.abspath(args.outfile)
     os.makedirs(os.path.dirname(out_abs) or ".", exist_ok=True)
 
     sim_tmp = out_abs + ".sim_only.mp4"
     title_tmp = out_abs + ".title.mp4"
 
-    print(f"Using dataset_path = {dataset_path}")
-    print(f"Axis mode        = {args.axis_mode}")
-    print(f"Parsed params    = {params}")
+    print(f"Parsed params = {params}")
 
     make_simulation_movie_only(
         h5_files=h5_files,
-        dataset_path=dataset_path,
         outfile=sim_tmp,
         fps=args.fps,
-        axis_mode=args.axis_mode
+        axis_mode=args.axis_mode,
+        dataset_path_override=args.dataset_path
     )
 
     w, h = ffprobe_wh(sim_tmp)
